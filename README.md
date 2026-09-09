@@ -114,8 +114,7 @@ ai-powered-meeting-scheduler/
 ├── .gitignore                 # Production Git ignore
 ├── LICENSE                    # MIT License
 ├── README.md                  # Project documentation
-├── requirements.txt           # Minimal project dependencies
-└── main.py                    # Root entry point delegating to meeting_scheduler
+└── requirements.txt           # Minimal project dependencies
 ```
 
 ---
@@ -195,7 +194,7 @@ pip install -r requirements.txt
 Start the interactive terminal scheduler:
 
 ```bash
-python main.py
+python -m meeting_scheduler.main
 ```
 
 On first launch, if `token.json` is not present:

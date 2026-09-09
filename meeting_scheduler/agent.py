@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import Callable
 
-from meeting_scheduler.tools import (
+from .tools import (
     LOCAL_TZ,
     TIME_ZONE_NAME,
     analyse_booking_patterns,

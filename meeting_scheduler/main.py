@@ -5,8 +5,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from meeting_scheduler.agent import create_scheduler_agent
-from meeting_scheduler.tools import (
+from .agent import create_scheduler_agent
+from .tools import (
     CREDENTIALS_PATH,
     DEFAULT_CALENDAR_ID,
     TIME_ZONE_NAME,

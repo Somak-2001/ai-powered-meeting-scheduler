@@ -13,7 +13,7 @@ Rather than relying on naive single-shot LLM prompts, the agent implements an **
 ```mermaid
 flowchart TD
     subgraph User Interaction
-        A[User Natural Language Prompt] --> B[CLI REPL Interface / main.py]
+        A[User Natural Language Prompt] --> B[CLI REPL Interface / meeting_scheduler/main.py]
     end
 
     subgraph Agentic Orchestration [meeting_scheduler/agent.py]
