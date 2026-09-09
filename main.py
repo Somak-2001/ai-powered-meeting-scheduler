@@ -1,28 +1,14 @@
-from agent import create_scheduler_agent
-from tools import get_calendar_service
+"""Convenience entry point for AI-Powered Meeting Scheduler."""
 
+import sys
+from pathlib import Path
 
-def print_calendar_status() -> None:
-    service = get_calendar_service()
-    calendar = service.calendars().get(calendarId="primary").execute()
-    print(f"Connected Calendar ID: {calendar.get('id', 'primary')}")
+# Add workspace directory to python path if not present
+workspace_dir = str(Path(__file__).resolve().parent)
+if workspace_dir not in sys.path:
+    sys.path.insert(0, workspace_dir)
 
-
-def main() -> None:
-    print("AI Scheduler Ready! Type 'exit' to quit.")
-    print_calendar_status()
-    agent = create_scheduler_agent()
-
-    while True:
-        user_input = input("\n> ").strip()
-        if user_input.lower() in {"exit", "quit"}:
-            break
-        if not user_input:
-            continue
-
-        result = agent(user_input)
-        print("\nAssistant:", result)
-
+from meeting_scheduler.main import main
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,16 @@
+# Core LangChain & LLM Integration
+langchain>=0.2.0
+langchain-core>=0.2.0
+langchain-google-genai>=1.0.0
+
+# Google Calendar API & OAuth 2.0
+google-auth>=2.0.0
+google-auth-oauthlib>=1.0.0
+google-api-python-client>=2.0.0
+
+# Configuration & Utilities
+python-dotenv>=1.0.0
+
+# Testing
+pytest>=7.0.0
+
