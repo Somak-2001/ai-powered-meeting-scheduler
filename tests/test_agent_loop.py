@@ -194,7 +194,38 @@ class TestAgentToolLoop(unittest.TestCase):
         self.assertIn("I completed the maximum reasoning steps", result)
         self.assertEqual(mock_llm.invoke.call_count, 8)
 
+    def test_tool_call_id_none_fallback(self) -> None:
+        """When LLM returns a tool call with id=None, agent supplies a valid string tool_call_id."""
+        mock_llm = MagicMock()
+        mock_llm.invoke.side_effect = [
+            MockAIMessage(
+                content="",
+                tool_calls=[{
+                    "name": "find_free_slots",
+                    "args": {"date": "2026-10-20"},
+                    "id": None,  # Simulating LLM returning None as id
+                }],
+            ),
+            MockAIMessage(
+                content="Here are your free slots.",
+                tool_calls=[],
+            ),
+        ]
+
+        with patch("meeting_scheduler.tools.fetch_events_between", return_value=[]):
+            agent = create_scheduler_agent(llm_client=mock_llm)
+            response = agent("Find free slots on Oct 20 2026")
+
+        self.assertIn("Here are your free slots.", response)
+        # Verify ToolMessage received a valid string tool_call_id
+        second_call_messages = mock_llm.invoke.call_args_list[1][0][0]
+        tool_msg = [m for m in second_call_messages if hasattr(m, "tool_call_id")][0]
+        self.assertIsNotNone(tool_msg.tool_call_id)
+        self.assertTrue(len(tool_msg.tool_call_id) > 0)
+        self.assertIn("call_find_free_slots_0", tool_msg.tool_call_id)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

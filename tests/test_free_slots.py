@@ -129,7 +129,24 @@ class TestFreeSlots(unittest.TestCase):
         result = find_free_slots.invoke({"date": "2026-10-25", "duration_minutes": 0})
         self.assertIn("Error: duration_minutes must be greater than 0", result)
 
+    def test_free_slots_past_date_excluded(self) -> None:
+        """Dates prior to today return an empty slot list."""
+        past_date_str = "2026-10-18"
+        slots = calculate_free_slots([], past_date_str, duration_minutes=30, current_time=self.fake_now)
+        self.assertEqual(len(slots), 0)
+
+    def test_find_free_slots_tool_past_date_error(self) -> None:
+        """find_free_slots returns an explicit error when querying a past date."""
+        result = find_free_slots.invoke({"date": "2020-01-01", "duration_minutes": 30})
+        self.assertIn("Error: Cannot search for free slots on 2020-01-01 because that date is in the past.", result)
+
+    def test_find_free_slots_tool_invalid_date_format(self) -> None:
+        """find_free_slots returns an explicit error when date is not YYYY-MM-DD."""
+        result = find_free_slots.invoke({"date": "tomorrow", "duration_minutes": 30})
+        self.assertIn("Error: date must be in YYYY-MM-DD format.", result)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

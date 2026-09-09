@@ -7,6 +7,7 @@ from .tools import (
     find_free_slots,
     get_calendar_events,
     query_calendar_insights,
+    rank_candidate_slots,
 )
 
 __all__ = [
@@ -16,4 +17,6 @@ __all__ = [
     "find_free_slots",
     "analyse_booking_patterns",
     "query_calendar_insights",
+    "rank_candidate_slots",
 ]
+

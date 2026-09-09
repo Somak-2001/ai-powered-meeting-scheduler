@@ -10,6 +10,7 @@ from meeting_scheduler.tools import (
     LOCAL_TZ,
     create_event,
     extract_timed_events,
+    get_calendar_events,
     has_overlap,
     is_past_datetime,
     parse_local_datetime,
@@ -197,7 +198,45 @@ class TestConflictDetection(unittest.TestCase):
         self.assertEqual(len(parsed), 1)
         self.assertEqual(parsed[0]["event"]["summary"], "Active Standup")
 
+    @patch("meeting_scheduler.tools.fetch_events_between")
+    def test_get_calendar_events_all_cancelled(self, mock_fetch: MagicMock) -> None:
+        """When all events on a date are cancelled, return 'No events found on {date}'."""
+        mock_fetch.return_value = [
+            {
+                "summary": "Old Cancelled Event",
+                "status": "cancelled",
+                "start": {"dateTime": "2026-09-15T10:00:00+05:30"},
+                "end": {"dateTime": "2026-09-15T11:00:00+05:30"},
+            }
+        ]
+        result = get_calendar_events.invoke({"date": "2026-09-15"})
+        self.assertEqual(result, "No events found on 2026-09-15.")
+
+    @patch("meeting_scheduler.tools.fetch_events_between")
+    def test_create_event_midnight_crossover(self, mock_fetch: MagicMock) -> None:
+        """Meeting spanning past midnight checks conflict against next day's early hours."""
+        future_date = (dt.datetime.now(LOCAL_TZ) + dt.timedelta(days=2)).strftime("%Y-%m-%d")
+        next_date = (dt.datetime.now(LOCAL_TZ) + dt.timedelta(days=3)).strftime("%Y-%m-%d")
+
+        # Mock an event at 00:15 on the following day
+        mock_fetch.return_value = [{
+            "summary": "Midnight Release Deploy",
+            "start": {"dateTime": f"{next_date}T00:15:00+05:30"},
+            "end": {"dateTime": f"{next_date}T01:00:00+05:30"},
+        }]
+
+        # Request meeting from 23:45 to 00:45 (spans midnight)
+        result = create_event.invoke({
+            "title": "Late Sync",
+            "date": future_date,
+            "start_time": "23:45",
+            "duration_minutes": 60,
+        })
+        self.assertIn("Conflict detected", result)
+        self.assertIn("Midnight Release Deploy", result)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

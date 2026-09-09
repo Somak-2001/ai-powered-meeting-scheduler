@@ -255,6 +255,10 @@ def calculate_free_slots(
     required = dt.timedelta(minutes=duration_minutes)
 
     now = current_time or dt.datetime.now(LOCAL_TZ)
+    # If date is strictly in the past, no future slots are available
+    if day < now.date():
+        return []
+
     # If checking today, working window cannot start in the past
     if day == now.date() and now > window_start:
         window_start = now
@@ -284,6 +288,74 @@ def calculate_free_slots(
         free_slots.append((cursor, window_end))
 
     return free_slots
+
+
+def rank_candidate_slots(
+    candidate_slots_by_date: dict[str, list[tuple[dt.datetime, dt.datetime]]],
+    requested_date: str,
+    preferred_hours: list[str] | None = None,
+    lightest_dates: list[str] | None = None,
+    limit: int = 3,
+) -> list[dict[str, Any]]:
+    """
+    Deterministically rank alternative free slots based on user habits and request context.
+
+    Scoring criteria:
+    - Same date as requested: +10 points (minimizes schedule disruption)
+    - On historically lightest day: +6 points (maximal availability)
+    - Starts during preferred hour: +4 points (habit alignment)
+    - Starts earlier in business day: up to +2 points
+    """
+    preferred_set = set(preferred_hours or [])
+    lightest_set = set(lightest_dates or [])
+    scored: list[tuple[float, dict[str, Any]]] = []
+
+    for d_str, slots in candidate_slots_by_date.items():
+        is_requested = (d_str == requested_date)
+        is_lightest = (d_str in lightest_set)
+
+        for s_start, s_end in slots:
+            hour_str = s_start.strftime("%H:00")
+            matches_hour = hour_str in preferred_set
+
+            score = 0.0
+            reasons: list[str] = []
+
+            if is_requested:
+                score += 10.0
+                reasons.append("Available slot on your originally requested date")
+            elif is_lightest:
+                score += 6.0
+                reasons.append(f"Scheduled on your historically lightest day ({s_start.strftime('%A')})")
+
+            if matches_hour:
+                score += 4.0
+                reasons.append(f"Aligns with your preferred meeting window ({hour_str})")
+
+            # Slight preference for standard mid-morning / early afternoon slots
+            hour = s_start.hour
+            if 10 <= hour <= 15:
+                score += 2.0
+            elif 9 <= hour <= 17:
+                score += 1.0
+
+            if not reasons:
+                reasons.append(f"Open calendar window on {s_start.strftime('%A')}")
+
+            entry = {
+                "date": d_str,
+                "weekday": s_start.strftime("%A"),
+                "start_time": s_start.strftime("%H:%M"),
+                "end_time": s_end.strftime("%H:%M"),
+                "formatted": f"{s_start.strftime('%A, %Y-%m-%d')} from {s_start.strftime('%H:%M')} to {s_end.strftime('%H:%M')}",
+                "reason": "; ".join(reasons) + ".",
+                "score": score,
+            }
+            scored.append((score, entry))
+
+    # Sort descending by score, then chronological
+    scored.sort(key=lambda item: (-item[0], item[1]["date"], item[1]["start_time"]))
+    return [item[1] for item in scored[:limit]]
 
 
 def compute_booking_metrics(
@@ -511,6 +583,9 @@ def get_calendar_events(date: str) -> str:
         else:
             lines.append(f"- {title}: {format_time_str(start_dt)} to {format_time_str(end_dt)}")
 
+    if len(lines) == 1:
+        return f"No events found on {date}."
+
     return "\n".join(lines)
 
 
@@ -560,7 +635,8 @@ def create_event(
     # Guard 2: Overlap check
     try:
         day_start, day_end = get_day_bounds(date)
-        day_events = fetch_events_between(day_start, day_end)
+        fetch_end = max(day_end, end_dt)
+        day_events = fetch_events_between(day_start, fetch_end)
     except Exception as exc:
         return f"Error fetching calendar events for conflict check: {exc}"
 
@@ -621,6 +697,15 @@ def find_free_slots(date: str, duration_minutes: int) -> str:
 
     try:
         start, end = get_day_bounds(date)
+    except ValueError:
+        return "Error: date must be in YYYY-MM-DD format."
+
+    day = start.date()
+    now = dt.datetime.now(LOCAL_TZ)
+    if day < now.date():
+        return f"Error: Cannot search for free slots on {date} because that date is in the past."
+
+    try:
         events = fetch_events_between(start, end)
     except Exception as exc:
         return f"Error fetching calendar data: {exc}"

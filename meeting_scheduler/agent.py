@@ -179,7 +179,7 @@ def create_scheduler_agent(
             for tool_call in response.tool_calls:
                 t_name = tool_call.get("name")
                 t_args = tool_call.get("args", {})
-                t_id = tool_call.get("id", f"call_{t_name}_{step}")
+                t_id = tool_call.get("id") or f"call_{t_name}_{step}"
 
                 tool_obj = TOOL_REGISTRY.get(t_name)
                 if tool_obj is None:
@@ -188,6 +188,8 @@ def create_scheduler_agent(
                     # Provide sensible default parameters if omitted
                     if t_name == "create_event":
                         t_args.setdefault("title", "Meeting")
+                        t_args.setdefault("duration_minutes", 30)
+                    elif t_name == "find_free_slots":
                         t_args.setdefault("duration_minutes", 30)
 
                     print(f"[Agent Execution] Invoking tool: {t_name}({t_args})")

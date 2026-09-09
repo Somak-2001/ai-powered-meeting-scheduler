@@ -11,6 +11,7 @@ from meeting_scheduler.tools import (
     LOCAL_TZ,
     analyse_booking_patterns,
     compute_booking_metrics,
+    rank_candidate_slots,
 )
 
 
@@ -102,7 +103,55 @@ class TestBookingPatterns(unittest.TestCase):
         self.assertIn("lightest_days", parsed)
         self.assertIn("average_duration", parsed)
 
+    def test_rank_candidate_slots_priority(self) -> None:
+        """Verify candidate slots are scored and ranked with requested date and preferred hours prioritized."""
+        req_date = "2026-10-20"
+        lightest_date = "2026-10-22"
+
+        t_req_10 = (
+            dt.datetime(2026, 10, 20, 10, 0, tzinfo=LOCAL_TZ),
+            dt.datetime(2026, 10, 20, 10, 30, tzinfo=LOCAL_TZ),
+        )
+        t_req_16 = (
+            dt.datetime(2026, 10, 20, 16, 0, tzinfo=LOCAL_TZ),
+            dt.datetime(2026, 10, 20, 16, 30, tzinfo=LOCAL_TZ),
+        )
+        t_light_10 = (
+            dt.datetime(2026, 10, 22, 10, 0, tzinfo=LOCAL_TZ),
+            dt.datetime(2026, 10, 22, 10, 30, tzinfo=LOCAL_TZ),
+        )
+
+        candidates = {
+            req_date: [t_req_10, t_req_16],
+            lightest_date: [t_light_10],
+        }
+
+        ranked = rank_candidate_slots(
+            candidates,
+            requested_date=req_date,
+            preferred_hours=["10:00"],
+            lightest_dates=[lightest_date],
+            limit=3,
+        )
+
+        self.assertEqual(len(ranked), 3)
+        # Top choice should be requested date at 10:00 (has both same date + preferred hour boost)
+        self.assertEqual(ranked[0]["date"], req_date)
+        self.assertEqual(ranked[0]["start_time"], "10:00")
+        self.assertIn("originally requested date", ranked[0]["reason"])
+        self.assertIn("preferred meeting window", ranked[0]["reason"])
+
+        # Second choice is lightest date at 10:00 (score 6 + 4 + 2 = 12, habit match)
+        self.assertEqual(ranked[1]["date"], lightest_date)
+        self.assertEqual(ranked[1]["start_time"], "10:00")
+        self.assertIn("historically lightest day", ranked[1]["reason"])
+
+        # Third choice is requested date at 16:00 (score 10 + 1 = 11)
+        self.assertEqual(ranked[2]["date"], req_date)
+        self.assertEqual(ranked[2]["start_time"], "16:00")
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
